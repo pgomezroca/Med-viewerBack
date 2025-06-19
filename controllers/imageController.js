@@ -12,6 +12,13 @@ const uploadImage = async (req, res) => {
 
   if (!file) return res.status(400).json({ error: 'No se envió ninguna imagen' });
 
+  const allowedPhases = ['pre', 'intra', 'post'];
+  const normalizedPhase = phase?.toLowerCase();
+
+  if(!allowedPhases.includes(normalizedPhase)) {
+    return res.status(400).json({ error: 'Fase inválida. Debe ser "pre", "intra" o "post".' });
+  }
+
   const fileName = Date.now() + path.extname(file.originalname);
 
   const params = {
@@ -29,7 +36,7 @@ const uploadImage = async (req, res) => {
       url: uploadResult.Location,
       region,
       diagnosis,
-      phase,
+      phase: normalizedPhase,
       uploadedBy,
       optionalDNI
     });
