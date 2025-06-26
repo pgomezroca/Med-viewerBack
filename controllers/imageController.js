@@ -8,15 +8,25 @@ const upload = multer({ storage });
 
 const uploadImage = async (req, res) => {
   const file = req.file;
-  const { region, diagnosis, phase, uploadedBy, optionalDNI } = req.body;
+  const {
+    region,
+    etiologia,
+    tejido,
+    diagnostico,
+    tratamiento,
+    fase,
+    uploadedBy,
+    optionalDNI
+  } = req.body;
 
   if (!file) return res.status(400).json({ error: 'No se envió ninguna imagen' });
 
+  let phase = fase;
   const allowedPhases = ['pre', 'intra', 'post'];
   const normalizedPhase = phase?.toLowerCase();
 
-  if(!allowedPhases.includes(normalizedPhase)) {
-    return res.status(400).json({ error: 'Fase inválida. Debe ser "pre", "intra" o "post".' });
+  if (!allowedPhases.includes(normalizedPhase)) {
+    return res.status(400).json({ error: 'Fase inválida. Usa: pre, intra o post.' });
   }
 
   const fileName = Date.now() + path.extname(file.originalname);
@@ -35,7 +45,10 @@ const uploadImage = async (req, res) => {
     const image = new Image({
       url: uploadResult.Location,
       region,
-      diagnosis,
+      etiologia,
+      tejido,
+      diagnostico,
+      tratamiento,
       phase: normalizedPhase,
       uploadedBy,
       optionalDNI
@@ -45,17 +58,31 @@ const uploadImage = async (req, res) => {
 
     res.status(201).json(image);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error al subir imagen:', err);
     res.status(500).json({ error: 'Error al subir la imagen' });
   }
 };
 
 const getImages = async (req, res) => {
-  const { region, diagnosis, phase, optionalDNI } = req.query;
+  let {
+    region,
+    etiologia,
+    tejido,
+    diagnostico,
+    tratamiento,
+    phase,
+    optionalDNI
+  } = req.query;
 
   const filters = {};
+
+  region = region ? region.toLowerCase() : null;
+
   if (region) filters.region = region;
-  if (diagnosis) filters.diagnosis = diagnosis;
+  if (etiologia) filters.etiologia = etiologia;
+  if (tejido) filters.tejido = tejido;
+  if (diagnostico) filters.diagnostico = diagnostico;
+  if (tratamiento) filters.tratamiento = tratamiento;
   if (phase) filters.phase = phase;
   if (optionalDNI) filters.optionalDNI = optionalDNI;
 
@@ -63,6 +90,7 @@ const getImages = async (req, res) => {
     const images = await Image.find(filters).sort({ uploadedAt: -1 });
     res.json(images);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error al recuperar imágenes' });
   }
 };
