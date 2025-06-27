@@ -76,8 +76,6 @@ const getImages = async (req, res) => {
 
   const filters = {};
 
-  region = region ? region.toLowerCase() : null;
-
   if (region) filters.region = region;
   if (etiologia) filters.etiologia = etiologia;
   if (tejido) filters.tejido = tejido;
