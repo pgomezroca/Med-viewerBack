@@ -39,6 +39,8 @@ const uploadImage = async (req, res) => {
     ContentType: file.mimetype
   };
 
+  const finalDNI = optionalDNI || Date.now().toString();
+
   try {
     const uploadResult = await s3.upload(params).promise();
 
@@ -51,7 +53,7 @@ const uploadImage = async (req, res) => {
       tratamiento,
       phase: normalizedPhase,
       uploadedBy,
-      optionalDNI
+      optionalDNI: finalDNI
     });
 
     await image.save();
