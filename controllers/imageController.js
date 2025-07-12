@@ -22,15 +22,16 @@ const uploadImage = async (req, res) => {
 
   if (!file) return res.status(400).json({ error: 'No se envió ninguna imagen' });
 
-  let phase = fase;
   const allowedPhases = ['pre', 'intra', 'post'];
-  const normalizedPhase = phase?.toLowerCase();
+  const normalizedPhase = fase?.toLowerCase();
 
   if (!allowedPhases.includes(normalizedPhase)) {
     return res.status(400).json({ error: 'Fase inválida. Usa: pre, intra o post.' });
   }
 
-  const fileName = Date.now() + path.extname(file.originalname);
+  const ext = path.extname(file.originalname);
+  const uniqueId = Math.random().toString(36).substring(2, 8);
+  const fileName = `${Date.now()}-${uniqueId}${ext}`;
 
   const params = {
     Bucket: process.env.SPACES_BUCKET,
