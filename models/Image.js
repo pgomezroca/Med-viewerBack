@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
 
 const imageSchema = new mongoose.Schema({
-  url: { type: String, required: true },
+  url: { type: String, required: false },
   region: { type: String, required: true },
-  etiologia: { type: String, required: true },
-  tejido: { type: String, required: true },
+  etiologia: { type: String, required: false },
+  tejido: { type: String, required: false },
   diagnostico: { type: String, required: true },
-  tratamiento: { type: String, required: true },
+  tratamiento: { type: String, required: false },
   phase: {
     type: String,
     enum: ['pre', 'intra', 'post'],
-    required: true
+    required: false
   },
   uploadedAt: { type: Date, default: Date.now },
   uploadedBy: {
