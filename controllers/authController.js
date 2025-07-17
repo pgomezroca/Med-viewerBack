@@ -37,9 +37,8 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Credenciales inválidas' });
 
     const token = jwt.sign(
-      { id: user._id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+      { id: user._id, email: user.email, nombre: user.nombre },
+      JWT_SECRET
     );
 
     res.json({
