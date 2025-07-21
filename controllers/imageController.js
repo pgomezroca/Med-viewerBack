@@ -16,29 +16,29 @@ const uploadImage = async (req, res) => {
     diagnostico,
     tratamiento,
     fase,
-    uploadedBy,
     optionalDNI
   } = req.body;
+
+  const userId = req.user.id;
 
   if (!file) return res.status(400).json({ error: 'No se envió ninguna imagen' });
 
   const allowedPhases = ['pre', 'intra', 'post'];
-  let normalizedPhase = null;
+  let normalizedPhase = fase?.toLowerCase();
 
-  if (fase) {
-    normalizedPhase = fase.toLowerCase();
-    if (!allowedPhases.includes(normalizedPhase)) {
-      return res.status(400).json({ error: 'Fase inválida. Usa: pre, intra o post.' });
-    }
+  if (fase && !allowedPhases.includes(normalizedPhase)) {
+    return res.status(400).json({ error: 'Fase inválida. Usa: pre, intra o post.' });
   }
 
   const ext = path.extname(file.originalname);
   const uniqueId = Math.random().toString(36).substring(2, 8);
   const fileName = `${Date.now()}-${uniqueId}${ext}`;
 
+  const key = `${userId}/${fileName}`;
+
   const params = {
     Bucket: process.env.SPACES_BUCKET,
-    Key: fileName,
+    Key: key,
     Body: file.buffer,
     ACL: 'public-read',
     ContentType: file.mimetype
@@ -57,7 +57,7 @@ const uploadImage = async (req, res) => {
       diagnostico,
       tratamiento,
       phase: normalizedPhase,
-      uploadedBy,
+      uploadedBy: userId,
       optionalDNI: finalDNI
     });
 
@@ -72,17 +72,20 @@ const uploadImage = async (req, res) => {
 
 //Recuperar casos mediante filtros por query params
 const getImages = async (req, res) => {
-  let {
+  const userId = req.user.id;
+
+  const {
     region,
     etiologia,
     tejido,
     diagnostico,
     tratamiento,
     phase,
+    dni,
     optionalDNI
   } = req.query;
 
-  const filters = {};
+  const filters = { uploadedBy: userId };
 
   if (region) filters.region = region;
   if (etiologia) filters.etiologia = etiologia;
@@ -90,7 +93,7 @@ const getImages = async (req, res) => {
   if (diagnostico) filters.diagnostico = diagnostico;
   if (tratamiento) filters.tratamiento = tratamiento;
   if (phase) filters.phase = phase;
-  if (optionalDNI) filters.optionalDNI = optionalDNI;
+  if (dni || optionalDNI) filters.optionalDNI = dni || optionalDNI;
 
   try {
     const images = await Image.find(filters).sort({ uploadedAt: -1 });
@@ -175,8 +178,11 @@ const deleteImage = async (req, res) => {
 
 //Recuperar casos con atributos incompletos para que el profesional termine de rellenar
 const getIncompleteImages = async (req, res) => {
+  const userId = req.user.id;
+
   try {
     const images = await Image.find({
+      uploadedBy: userId,
       region: { $ne: null },
       diagnostico: { $ne: null },
       $or: [
