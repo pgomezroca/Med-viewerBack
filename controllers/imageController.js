@@ -51,12 +51,12 @@ const uploadImage = async (req, res) => {
 
     const image = new Image({
       url: uploadResult.Location,
-      region,
-      etiologia,
-      tejido,
-      diagnostico,
-      tratamiento,
-      phase: normalizedPhase,
+      region: region ?? null,
+      etiologia: etiologia ?? null,
+      tejido: tejido ?? null,
+      diagnostico: diagnostico ?? null,
+      tratamiento: tratamiento ?? null,
+      phase: normalizedPhase ?? null,
       uploadedBy: userId,
       optionalDNI: finalDNI
     });
