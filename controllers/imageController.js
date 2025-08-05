@@ -6,9 +6,9 @@ const path = require('path');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Subir imagen a un caso (o crear nuevo caso con una imagen)
+// Subir imagen a un caso (o crear nuevo caso con una imagen o varias)
 const uploadImage = async (req, res) => {
-  const file = req.file;
+  const files = req.files;
   const {
     region,
     etiologia,
@@ -21,7 +21,9 @@ const uploadImage = async (req, res) => {
 
   const userId = req.user.id;
 
-  if (!file) return res.status(400).json({ error: 'No se envió ninguna imagen' });
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'No se enviaron imágenes' });
+  }
 
   const allowedPhases = ['pre', 'intra', 'post'];
   let normalizedPhase = fase?.toLowerCase();
@@ -30,27 +32,31 @@ const uploadImage = async (req, res) => {
     return res.status(400).json({ error: 'Fase inválida. Usa: pre, intra o post.' });
   }
 
-  const ext = path.extname(file.originalname);
-  const uniqueId = Math.random().toString(36).substring(2, 8);
-  const fileName = `${Date.now()}-${uniqueId}${ext}`;
-
-  const key = `${userId}/${fileName}`;
-
-  const params = {
-    Bucket: process.env.SPACES_BUCKET,
-    Key: key,
-    Body: file.buffer,
-    ACL: 'public-read',
-    ContentType: file.mimetype
-  };
-
   const finalDNI = optionalDNI || Date.now().toString();
 
   try {
-    const uploadResult = await s3.upload(params).promise();
+    const uploadPromises = files.map(file => {
+      const ext = path.extname(file.originalname);
+      const uniqueId = Math.random().toString(36).substring(2, 8);
+      const fileName = `${Date.now()}-${uniqueId}${ext}`;
+      const key = `${userId}/${fileName}`;
+
+      const params = {
+        Bucket: process.env.SPACES_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ACL: 'public-read',
+        ContentType: file.mimetype
+      };
+
+      return s3.upload(params).promise();
+    });
+
+    const uploadResults = await Promise.all(uploadPromises);
+    const imageUrls = uploadResults.map(result => result.Location);
 
     const newCase = await Case.create({
-      images: [uploadResult.Location],
+      images: imageUrls,
       region: region ?? null,
       etiologia: etiologia ?? null,
       tejido: tejido ?? null,
@@ -63,8 +69,8 @@ const uploadImage = async (req, res) => {
 
     res.status(201).json(newCase);
   } catch (err) {
-    console.error('❌ Error al subir imagen:', err);
-    res.status(500).json({ error: 'Error al subir la imagen' });
+    console.error('❌ Error al subir imágenes:', err);
+    res.status(500).json({ error: 'Error al subir las imágenes' });
   }
 };
 
