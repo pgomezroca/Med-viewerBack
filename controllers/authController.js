@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const { User } = require('../models');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -10,12 +10,11 @@ const register = async (req, res) => {
     if (!nombre || !apellido || !email || !password)
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ where: { email } });
     if (userExists)
       return res.status(400).json({ error: 'El email ya está registrado' });
 
-    const user = new User({ nombre, apellido, email, password });
-    await user.save();
+    await User.create({ nombre, apellido, email, password });
 
     res.status(201).json({ message: 'Registro exitoso' });
   } catch (err) {
@@ -28,7 +27,7 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user)
       return res.status(400).json({ error: 'Credenciales inválidas' });
 
@@ -37,14 +36,14 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Credenciales inválidas' });
 
     const token = jwt.sign(
-      { id: user._id, email: user.email, nombre: user.nombre },
+      { id: user.id, email: user.email, nombre: user.nombre },
       JWT_SECRET
     );
 
     res.json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         nombre: user.nombre,
         apellido: user.apellido,
         email: user.email

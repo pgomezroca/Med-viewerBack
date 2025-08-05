@@ -1,4 +1,4 @@
-const Image = require('../models/Image');
+const { Case } = require('../models');
 const s3 = require('../config/s3');
 const multer = require('multer');
 const path = require('path');
@@ -6,7 +6,7 @@ const path = require('path');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-//Subir casos
+// Subir imagen a un caso (o crear nuevo caso con una imagen)
 const uploadImage = async (req, res) => {
   const file = req.file;
   const {
@@ -49,31 +49,28 @@ const uploadImage = async (req, res) => {
   try {
     const uploadResult = await s3.upload(params).promise();
 
-    const image = new Image({
-      url: uploadResult.Location,
+    const newCase = await Case.create({
+      images: [uploadResult.Location],
       region: region ?? null,
       etiologia: etiologia ?? null,
       tejido: tejido ?? null,
       diagnostico: diagnostico ?? null,
       tratamiento: tratamiento ?? null,
       phase: normalizedPhase ?? null,
-      uploadedBy: userId,
-      optionalDNI: finalDNI
+      optionalDNI: finalDNI,
+      uploadedBy: userId
     });
 
-    await image.save();
-
-    res.status(201).json(image);
+    res.status(201).json(newCase);
   } catch (err) {
     console.error('❌ Error al subir imagen:', err);
     res.status(500).json({ error: 'Error al subir la imagen' });
   }
 };
 
-//Recuperar casos mediante filtros por query params
+// Obtener casos con filtros
 const getImages = async (req, res) => {
   const userId = req.user.id;
-
   const {
     region,
     etiologia,
@@ -96,15 +93,18 @@ const getImages = async (req, res) => {
   if (dni || optionalDNI) filters.optionalDNI = dni || optionalDNI;
 
   try {
-    const images = await Image.find(filters).sort({ uploadedAt: -1 });
-    res.json(images);
+    const cases = await Case.findAll({
+      where: filters,
+      order: [['createdAt', 'DESC']],
+    });
+    res.json(cases);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al recuperar imágenes' });
+    res.status(500).json({ error: 'Error al recuperar casos' });
   }
 };
 
-//Editar un caso
+// Actualizar un caso
 const updateImage = async (req, res) => {
   const { id } = req.params;
   const {
@@ -136,70 +136,82 @@ const updateImage = async (req, res) => {
   }
 
   try {
-    const updated = await Image.findByIdAndUpdate(id, updateFields, { new: true });
+    const [updatedCount] = await Case.update(updateFields, {
+      where: { id }
+    });
 
-    if (!updated) {
+    if (updatedCount === 0) {
       return res.status(404).json({ error: 'Caso no encontrado' });
     }
 
-    res.json(updated);
+    const updatedCase = await Case.findByPk(id);
+    res.json(updatedCase);
   } catch (err) {
-    console.error('❌ Error al actualizar imagen:', err);
-    res.status(500).json({ error: 'Error al actualizar imagen' });
+    console.error('❌ Error al actualizar caso:', err);
+    res.status(500).json({ error: 'Error al actualizar caso' });
   }
 };
 
-//Borrar un caso + eliminación de la imagen en DoSpaces
+// Eliminar caso e imagen
 const deleteImage = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const image = await Image.findById(id);
-    if (!image) return res.status(404).json({ error: 'Imagen no encontrada' });
+    const caseItem = await Case.findByPk(id);
+    if (!caseItem) return res.status(404).json({ error: 'Caso no encontrado' });
 
-    const imageUrl = image.url;
-    const key = decodeURIComponent(new URL(imageUrl).pathname).replace(/^\/+/, '');
+    const urls = caseItem.images || [];
+    for (const url of urls) {
+      const key = decodeURIComponent(new URL(url).pathname).replace(/^\/+/, '');
+      const params = {
+        Bucket: process.env.SPACES_BUCKET,
+        Key: key
+      };
+      await s3.deleteObject(params).promise();
+    }
 
-    const params = {
-      Bucket: process.env.SPACES_BUCKET,
-      Key: key
-    };
+    await caseItem.destroy();
 
-    await s3.deleteObject(params).promise();
-
-    await image.deleteOne();
-
-    res.json({ message: 'Imagen eliminada correctamente' });
+    res.json({ message: 'Caso eliminado correctamente' });
   } catch (err) {
-    console.error('❌ Error al eliminar imagen:', err);
-    res.status(500).json({ error: 'Error al eliminar imagen' });
+    console.error('❌ Error al eliminar caso:', err);
+    res.status(500).json({ error: 'Error al eliminar caso' });
   }
 };
 
-//Recuperar casos con atributos incompletos para que el profesional termine de rellenar
+// Casos con datos incompletos
 const getIncompleteImages = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const images = await Image.find({
-      uploadedBy: userId,
-      region: { $ne: null },
-      diagnostico: { $ne: null },
-      $or: [
-        { etiologia: null },
-        { tejido: null },
-        { tratamiento: null },
-        { phase: null }
-      ]
-    })
-      .sort({ uploadedAt: -1 })
-      .limit(20);
+    const cases = await Case.findAll({
+      where: {
+        uploadedBy: userId,
+        region: { [Op.ne]: null },
+        diagnostico: { [Op.ne]: null },
+        [Op.or]: [
+          { etiologia: null },
+          { tejido: null },
+          { tratamiento: null },
+          { phase: null }
+        ]
+      },
+      order: [['createdAt', 'DESC']],
+      limit: 20
+    });
 
-    res.json(images);
+    res.json(cases);
   } catch (err) {
-    console.error('❌ Error al buscar imágenes incompletas:', err);
-    res.status(500).json({ error: 'Error al recuperar imágenes incompletas' });
+    console.error('❌ Error al buscar casos incompletos:', err);
+    res.status(500).json({ error: 'Error al recuperar casos incompletos' });
   }
 };
 
-module.exports = { upload, uploadImage, getImages, updateImage, deleteImage, getIncompleteImages };
+module.exports = {
+  upload,
+  uploadImage,
+  getImages,
+  updateImage,
+  deleteImage,
+  getIncompleteImages
+};
