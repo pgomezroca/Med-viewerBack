@@ -2,6 +2,7 @@ const { Case } = require('../models');
 const s3 = require('../config/s3');
 const multer = require('multer');
 const path = require('path');
+const { Op } = require('sequelize');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -103,7 +104,20 @@ const getImages = async (req, res) => {
       where: filters,
       order: [['createdAt', 'DESC']],
     });
-    res.json(cases);
+
+    const parsedCases = cases.map(c => {
+      const parsed = c.toJSON();
+      if (parsed.images) {
+        try {
+          parsed.images = JSON.parse(parsed.images);
+        } catch (e) {
+          parsed.images = [];
+        }
+      }
+      return parsed;
+    });
+
+    res.json(parsedCases);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al recuperar casos' });
@@ -206,7 +220,19 @@ const getIncompleteImages = async (req, res) => {
       limit: 20
     });
 
-    res.json(cases);
+    const parsedCases = cases.map(c => {
+      const parsed = c.toJSON();
+      if (parsed.images) {
+        try {
+          parsed.images = JSON.parse(parsed.images);
+        } catch (e) {
+          parsed.images = [];
+        }
+      }
+      return parsed;
+    });
+
+    res.json(parsedCases);
   } catch (err) {
     console.error('❌ Error al buscar casos incompletos:', err);
     res.status(500).json({ error: 'Error al recuperar casos incompletos' });
