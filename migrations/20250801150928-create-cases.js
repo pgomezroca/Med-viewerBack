@@ -10,7 +10,7 @@ module.exports = {
         primaryKey: true
       },
       images: {
-        type: Sequelize.JSON,
+        type: Sequelize.TEXT,
         allowNull: true
       },
       region: {
