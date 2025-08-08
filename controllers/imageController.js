@@ -180,14 +180,33 @@ const deleteImage = async (req, res) => {
     const caseItem = await Case.findByPk(id);
     if (!caseItem) return res.status(404).json({ error: 'Caso no encontrado' });
 
-    const urls = caseItem.images || [];
+    let urls = [];
+    try {
+      urls = typeof caseItem.images === 'string' 
+        ? JSON.parse(caseItem.images) 
+        : caseItem.images || [];
+      
+      urls = Array.isArray(urls) ? urls : [];
+    } catch (e) {
+      console.error('Error al parsear imágenes:', e);
+      urls = [];
+    }
+
     for (const url of urls) {
-      const key = decodeURIComponent(new URL(url).pathname).replace(/^\/+/, '');
-      const params = {
-        Bucket: process.env.SPACES_BUCKET,
-        Key: key
-      };
-      await s3.deleteObject(params).promise();
+      try {
+        if (typeof url === 'string' && url.trim() !== '') {
+          const parsedUrl = new URL(url);
+          const key = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+          
+          const params = {
+            Bucket: process.env.SPACES_BUCKET,
+            Key: key
+          };
+          await s3.deleteObject(params).promise();
+        }
+      } catch (err) {
+        console.error(`Error al eliminar imagen ${url}:`, err);
+      }
     }
 
     await caseItem.destroy();
