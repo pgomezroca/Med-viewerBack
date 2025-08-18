@@ -266,7 +266,7 @@ const takePhotoAndCreateCase = async (req, res) => {
 
     const files = req.files;
 
-    let patient = await Patient.findOne({ dni });
+    let patient = await Patient.findOne({ where: { dni } });
     
     if (!patient) {
       patient = new Patient({ dni });
