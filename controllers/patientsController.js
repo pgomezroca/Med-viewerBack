@@ -8,7 +8,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const createCaseWithImages = async (req, res) => {
-  const files = req.files;
+  const files = req.files || [];
   const {
     region,
     etiologia,
@@ -22,10 +22,6 @@ const createCaseWithImages = async (req, res) => {
   } = req.body;
 
   const userId = req.user.id;
-
-  if (!files || files.length === 0) {
-    return res.status(400).json({ error: 'No se enviaron imágenes' });
-  }
 
   let normalizedPhase = null;
 
@@ -64,7 +60,9 @@ const createCaseWithImages = async (req, res) => {
       uploadedBy: userId
     });
 
-    await uploadAndAssociateImages(files, newCase.id, normalizedPhase, userId);
+    if (files.length > 0) {
+      await uploadAndAssociateImages(files, newCase.id, normalizedPhase, userId);
+    }
 
     const caseWithImages = await Case.findByPk(newCase.id, {
       include: [{
