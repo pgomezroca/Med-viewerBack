@@ -2,48 +2,65 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Case = sequelize.define('Case', {
-    images: {
-      type: DataTypes.JSON,
+    dni: {
+      type: DataTypes.STRING(32),
       allowNull: true,
     },
     region: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: DataTypes.STRING(100),
+      allowNull: true,
     },
     etiologia: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(150),
       allowNull: true,
     },
     tejido: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(150),
       allowNull: true,
     },
     diagnostico: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: DataTypes.STRING(200),
+      allowNull: true,
     },
     tratamiento: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(200),
       allowNull: true,
     },
-    phase: {
-      type: DataTypes.ENUM('pre', 'intra', 'post'),
+    estado: {
+      type: DataTypes.STRING(50),
       allowNull: true,
+      defaultValue: 'abierto'
     },
-    optionalDNI: {
-      type: DataTypes.STRING,
+    uploaded_by: {
+      type: DataTypes.BIGINT.UNSIGNED,
       allowNull: true,
     },
   }, {
     tableName: 'cases',
     timestamps: true,
+    underscored: true,
   });
 
-  // Relaciones
   Case.associate = (models) => {
+    Case.belongsTo(models.Patient, {
+      foreignKey: 'patient_id',
+      as: 'patient',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    });
+
+    Case.hasMany(models.Image, {
+      foreignKey: 'case_id',
+      as: 'images',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    });
+
     Case.belongsTo(models.User, {
-      foreignKey: 'uploadedBy',
+      foreignKey: 'uploaded_by',
       as: 'uploader',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE',
     });
   };
 

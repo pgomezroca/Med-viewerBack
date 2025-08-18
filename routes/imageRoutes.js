@@ -1,12 +1,31 @@
 const express = require('express');
 const router = express.Router();
-const imageController = require('../controllers/imageController');
+const patientsController = require('../controllers/patientsController');
+const casesController = require('../controllers/casesController');
 const auth = require('../middleware/authMiddleware');
 
-router.post('/upload', auth, imageController.upload.array('images'), imageController.uploadImage);
-router.get('/search', auth, imageController.getImages);
-router.put('/:id', imageController.updateImage);
-router.delete('/:id', imageController.deleteImage);
-router.get("/incomplete", auth, imageController.getIncompleteImages);
+//Crear paciente con su primer caso (Welcome.jsx)
+router.post('/cases', auth, patientsController.upload.array('images'), patientsController.createCaseWithImages);
+
+//Añadir imagenes/videos en un caso existente (RecoverPhoto.jsx)
+router.post('/cases/:caseId/images', auth, patientsController.upload.array('images'), patientsController.addImagesToCase);
+
+//Tomar foto o importar varias (ImportPhoto.jsx y TakePhoto.jsx)
+router.post('/cases/take-photo-or-import', auth, patientsController.upload.array('images'), patientsController.takePhotoAndCreateCase);
+
+//Buscar imagenes por DNI, region, diagnostico, fase, tejido, etiologia, tratamiento (RecoverPhoto.jsx, TakePhoto.jsx)
+router.get('/search', auth, patientsController.getImages);
+
+//Actualizar datos de un caso (CompleteImageLabels.jsx)
+router.put('/:caseId', casesController.updateCase);
+
+//Borrar imagen de un caso (Sin componente definido)
+router.delete('/delete-image/:imageId', casesController.deleteCaseImage);
+
+//Obtener casos con tags incompletos (CompleteImageLabels.jsx)
+router.get("/incomplete", auth, patientsController.getIncompleteImages);
+
+//Borrar caso (junto con todas sus imagenes y las del space) (CompleteImageLabels.jsx)
+router.delete('/delete-case/:caseId', auth, casesController.deleteCaseWithImages);
 
 module.exports = router;

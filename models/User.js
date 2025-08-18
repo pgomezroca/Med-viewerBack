@@ -4,15 +4,15 @@ const bcrypt = require('bcryptjs');
 module.exports = (sequelize) => {
   const User = sequelize.define('User', {
     nombre: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     apellido: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     email: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(191),
       allowNull: false,
       unique: true,
       validate: {
@@ -20,12 +20,13 @@ module.exports = (sequelize) => {
       }
     },
     password: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(191),
       allowNull: false,
     },
   }, {
     tableName: 'users',
     timestamps: true,
+    underscored: true,
   });
 
   User.beforeCreate(async (user) => {
@@ -40,15 +41,16 @@ module.exports = (sequelize) => {
     }
   });
 
-    User.prototype.comparePassword = function (candidatePassword) {
+  User.prototype.comparePassword = function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
   };
 
-  // Relaciones
   User.associate = (models) => {
-    User.hasMany(models.Case, {
-      foreignKey: 'uploadedBy',
-      as: 'cases',
+    User.hasMany(models.Patient, {
+      foreignKey: 'user_id',
+      as: 'patients',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
     });
   };
 
