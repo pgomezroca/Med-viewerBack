@@ -266,10 +266,20 @@ const takePhotoAndCreateCase = async (req, res) => {
 
     const files = req.files;
 
-    let patient = await Patient.findOne({ where: { dni } });
+    let patient = await Patient.findOne({ 
+      where: { 
+        dni,
+        user_id: req.user.id
+      } 
+    });
     
     if (!patient) {
-      patient = new Patient({ dni });
+      patient = await Patient.create({ 
+        dni,
+        user_id: req.user.id,
+        nombre: req.body.nombre || null,
+        apellido: req.body.apellido || null
+      });
       await patient.save();
     }
 
