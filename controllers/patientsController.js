@@ -163,16 +163,24 @@ const getImages = async (req, res) => {
         {
           model: Image,
           as: 'images',
-          required: true
+          required: false
         }
       ],
       where: {
         ...caseFilters
-      }
+      },
+      order: [['createdAt', 'DESC']]
     });
-    res.json(data);
+
+    const transformedData = data.map(caseItem => ({
+      ...caseItem.toJSON(),
+      hasImages: caseItem.images && caseItem.images.length > 0,
+      imagesCount: caseItem.images ? caseItem.images.length : 0
+    }));
+
+    res.json(transformedData);
   } catch (err) {
-    console.error('❌ Error al recuperar datos:', err);
+    console.error('❌ Error al recuperar casos:', err);
     res.status(500).json({ error: 'Error al recuperar casos' });
   }
 };
