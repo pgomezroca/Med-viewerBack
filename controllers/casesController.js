@@ -1,5 +1,6 @@
 const { Case, Image } = require("../models");
 const AWS = require("aws-sdk");
+const { deleteFromSpaces }  = require("../helpers/deleteFromSpaces");
 
 const s3 = new AWS.S3({
   endpoint: process.env.DO_SPACES_ENDPOINT,
@@ -51,17 +52,7 @@ const deleteCaseImage = async (req, res) => {
     const image = await Image.findByPk(imageId);
     if (!image) return res.status(404).json({ error: "Imagen no encontrada" });
 
-    const url = new URL(image.url);
-    const key = url.pathname.startsWith("/")
-      ? url.pathname.slice(1)
-      : url.pathname;
-
-    await s3
-      .deleteObject({
-        Bucket: process.env.SPACES_BUCKET,
-        Key: key,
-      })
-      .promise();
+    await deleteFromSpaces(image.url);
 
     await image.destroy();
 
@@ -83,40 +74,26 @@ const deleteCaseWithImages = async (req, res) => {
 
     const images = await Image.findAll({ where: { case_id: caseId } });
 
-    const deleteImagePromises = images.map(async (image) => {
-      try {
-        if (image.url) {
-          const url = new URL(image.url);
-          const key = url.pathname.startsWith("/") 
-            ? url.pathname.slice(1) 
-            : url.pathname;
-
-          await s3.deleteObject({
-            Bucket: process.env.SPACES_BUCKET,
-            Key: key,
-          }).promise();
-        }
-      } catch (err) {
-        console.error(`Error eliminando imagen de Spaces (ID: ${image.id}):`, err);
-      }
-    });
+    const deleteImagePromises = images.map((image) =>
+      deleteFromSpaces(image.url).catch((err) => {
+        console.error(`❌ Error eliminando imagen de Spaces (ID: ${image.id}):`, err);
+      })
+    );
 
     await Promise.all(deleteImagePromises);
 
     await Image.destroy({ where: { case_id: caseId } });
-
     await caseToDelete.destroy();
 
-    res.json({ 
+    res.json({
       success: true,
-      message: `Caso y ${images.length} imagen(es) asociadas eliminadas correctamente` 
+      message: `Caso y ${images.length} imagen(es) asociadas eliminadas correctamente`,
     });
-
   } catch (err) {
     console.error("❌ Error eliminando caso:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Error interno del servidor al eliminar el caso",
-      details: err.message 
+      details: err.message,
     });
   }
 };
