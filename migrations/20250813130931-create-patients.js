@@ -23,11 +23,11 @@ module.exports = {
       },
       nombre: {
         type: Sequelize.STRING(100),
-        allowNull: false,
+        allowNull: true,
       },
       apellido: {
         type: Sequelize.STRING(100),
-        allowNull: false,
+        allowNull: true,
       },
       created_at: {
         allowNull: false,
