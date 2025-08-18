@@ -18,7 +18,7 @@ module.exports = {
       },
       dni: {
         type: Sequelize.STRING(32),
-        allowNull: false,
+        allowNull: true,
         unique: true,
       },
       nombre: {
