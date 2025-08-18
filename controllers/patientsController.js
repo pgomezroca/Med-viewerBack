@@ -281,7 +281,8 @@ const takePhotoAndCreateCase = async (req, res) => {
       etiologia,
       tejido,
       tratamiento,
-      uploaded_by: req.user.id
+      uploaded_by: req.user.id,
+      dni: dni
     });
 
     await newCase.save();
