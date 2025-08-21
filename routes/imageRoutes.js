@@ -7,6 +7,8 @@ const auth = require('../middleware/authMiddleware');
 //Crear paciente con su primer caso (Welcome.jsx)
 router.post('/cases', auth, patientsController.upload.array('images'), patientsController.createCaseWithImages);
 
+// NUEVO: crear caso vacío para paciente existente
+router.post('/cases/create-empty', auth, casesController.createEmptyCaseForExistingPatient);
 //Añadir imagenes/videos en un caso existente (RecoverPhoto.jsx)
 router.post('/cases/:caseId/images', auth, patientsController.upload.array('images'), patientsController.addImagesToCase);
 
