@@ -30,4 +30,10 @@ router.get("/incomplete", auth, patientsController.getIncompleteImages);
 //Borrar caso (junto con todas sus imagenes y las del space) (CompleteImageLabels.jsx)
 router.delete('/delete-case/:caseId', auth, casesController.deleteCaseWithImages);
 
+//Obtener detalles de un caso en especifico (recibe case_id)
+router.get('/cases/:caseId/images', auth, casesController.getCaseInfo);
+
+//Cambiar el estado de un caso
+router.put('/cases/:caseId/change-status', auth, casesController.changeCaseStatus);
+
 module.exports = router;

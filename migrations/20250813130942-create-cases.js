@@ -26,6 +26,7 @@ module.exports = {
       diagnostico:  { type: Sequelize.STRING(200), allowNull: true },
       tratamiento:  { type: Sequelize.STRING(200), allowNull: true },
       estado:       { type: Sequelize.STRING(50),  allowNull: true },
+      surgeon_date: { type: Sequelize.DATE, allowNull: true, defaultValue: null },
       uploaded_by:  { type: Sequelize.BIGINT.UNSIGNED, allowNull: true },
       created_at: {
         allowNull: false,

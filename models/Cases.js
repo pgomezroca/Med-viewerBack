@@ -31,6 +31,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       defaultValue: 'abierto'
     },
+    surgeon_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null
+    },
     uploaded_by: {
       type: DataTypes.BIGINT.UNSIGNED,
       allowNull: true,

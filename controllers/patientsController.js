@@ -3,6 +3,7 @@ const s3 = require('../config/s3');
 const multer = require('multer');
 const path = require('path');
 const { Op } = require('sequelize');
+const { validateDuplicateCase } = require('../helpers/caseValidator');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -23,15 +24,13 @@ const createCaseWithImages = async (req, res) => {
 
   const userId = req.user.id;
 
-  let normalizedPhase = null;
-
-  if(fase === '' || fase === null || fase === undefined) {
-    normalizedPhase = fase?.toLowerCase() ?? 'pre';
-  }
-
-  normalizedPhase = fase?.toLowerCase() || 'pre';
+  let normalizedPhase = fase?.toLowerCase() || 'pre';
 
   try {
+    if (!dni) return res.status(400).json({ error: "DNI requerido" });
+    if (!region) return res.status(400).json({ error: "Región requerida" });
+    if (!diagnostico) return res.status(400).json({ error: "Diagnóstico requerido" });
+
     let patient = await Patient.findOne({ where: { dni, user_id: userId } });
     
     if (!patient) {
@@ -49,22 +48,52 @@ const createCaseWithImages = async (req, res) => {
       });
     }
 
-    const newCase = await Case.create({
-      patient_id: patient.id,
-      region: region || null,
-      etiologia: etiologia || null,
-      tejido: tejido || null,
-      diagnostico: diagnostico || null,
-      tratamiento: tratamiento || null,
-      dni: dni,
-      uploadedBy: userId
-    });
+    // Validar si existe un caso similar en los últimos 6 meses
+    const currentDate = new Date();
+    const existingCase = await validateDuplicateCase(
+      dni, 
+      region, 
+      diagnostico, 
+      currentDate, 
+      userId
+    );
 
-    if (files.length > 0) {
-      await uploadAndAssociateImages(files, newCase.id, normalizedPhase, userId);
+    let caseId;
+    let isNewCase = true;
+
+    if (existingCase) {
+      caseId = existingCase.id;
+      isNewCase = false;
+      
+      // Actualizar información adicional si es necesario
+      await Case.update({
+        etiologia: etiologia || existingCase.etiologia,
+        tejido: tejido || existingCase.tejido,
+        tratamiento: tratamiento || existingCase.tratamiento,
+      }, {
+        where: { id: caseId }
+      });
+    } else {
+      // Crear nuevo caso
+      const newCase = await Case.create({
+        patient_id: patient.id,
+        region,
+        etiologia: etiologia || null,
+        tejido: tejido || null,
+        diagnostico,
+        tratamiento: tratamiento || null,
+        dni: dni,
+        fase: normalizedPhase,
+        uploaded_by: userId
+      });
+      caseId = newCase.id;
     }
 
-    const caseWithImages = await Case.findByPk(newCase.id, {
+    if (files.length > 0) {
+      await uploadAndAssociateImages(files, caseId, normalizedPhase, userId);
+    }
+
+    const caseWithData = await Case.findByPk(caseId, {
       include: [{
         model: Image,
         as: 'images'
@@ -76,8 +105,10 @@ const createCaseWithImages = async (req, res) => {
     });
 
     res.status(201).json({
-      ...caseWithImages.toJSON(),
-      patientCreated: !patient.createdAt
+      ...caseWithData.toJSON(),
+      patientCreated: !patient.createdAt,
+      isNewCase: isNewCase,
+      existingCaseId: existingCase ? existingCase.id : null
     });
   } catch (err) {
     console.error('❌ Error al crear caso con imágenes:', err);
@@ -220,6 +251,7 @@ const getIncompleteImages = async (req, res) => {
   }
 };
 
+//Funcion helper interna que asocia y sube imagenes a un caso
 const uploadAndAssociateImages = async (files, caseId, phase, userId) => {
   const uploadPromises = files.map(file => {
     const ext = path.extname(file.originalname);
@@ -254,6 +286,7 @@ const uploadAndAssociateImages = async (files, caseId, phase, userId) => {
   return imageUrls;
 };
 
+// Función principal para tomar foto/importar y crear caso (TakePhoto.jsx, ImportPhoto.jsx)
 const takePhotoAndCreateCase = async (req, res) => {
   try {
     const { dni, region, diagnostico, fase, etiologia, tejido, tratamiento } = req.body;
@@ -264,57 +297,135 @@ const takePhotoAndCreateCase = async (req, res) => {
       });
     }
 
+    if (!dni) return res.status(400).json({ error: "DNI requerido" });
+    if (!region) return res.status(400).json({ error: "Región requerida" });
+    if (!diagnostico) return res.status(400).json({ error: "Diagnóstico requerido" });
+
     const files = req.files;
+    const userId = req.user.id;
+
+    // Normalizar fase
+    const normalizedPhase = fase?.toLowerCase() || 'pre';
+
+    // Validar si existe un caso similar en los últimos 6 meses
+    const currentDate = new Date();
+    const existingCase = await validateDuplicateCase(
+      dni, 
+      region, 
+      diagnostico, 
+      currentDate, 
+      userId
+    );
 
     let patient = await Patient.findOne({ 
       where: { 
         dni,
-        user_id: req.user.id
+        user_id: userId
       } 
     });
     
     if (!patient) {
+      // Validar que se proporcionen nombre y apellido para nuevo paciente
+      if (!req.body.nombre || !req.body.apellido) {
+        return res.status(400).json({ 
+          error: 'Para crear un nuevo paciente, se requieren nombre y apellido' 
+        });
+      }
+
       patient = await Patient.create({ 
         dni,
-        user_id: req.user.id,
-        nombre: req.body.nombre || null,
-        apellido: req.body.apellido || null
+        user_id: userId,
+        nombre: req.body.nombre,
+        apellido: req.body.apellido
       });
-      await patient.save();
     }
 
-    const newCase = new Case({
-      patient_id: patient.id,
-      region,
-      diagnostico,
-      fase,
-      etiologia,
-      tejido,
-      tratamiento,
-      uploaded_by: req.user.id,
-      dni: dni
-    });
+    let caseId;
+    let isNewCase = true;
 
-    await newCase.save();
-
-    uploadAndAssociateImages(files, newCase.id, fase, req.user.id)
-      .then(() => {
-        console.log('Imágenes subidas y asociadas al caso correctamente');
-      })
-      .catch((error) => {
-        console.error('Error al subir imágenes:', error);
-        throw error;
+    if (existingCase) {
+      caseId = existingCase.id;
+      isNewCase = false;
+      
+      // Actualizar información adicional del caso existente si es necesario
+      await Case.update({
+        etiologia: etiologia || existingCase.etiologia,
+        tejido: tejido || existingCase.tejido,
+        tratamiento: tratamiento || existingCase.tratamiento,
+      }, {
+        where: { id: caseId }
       });
+    } else {
+      // Crear nuevo caso
+      const newCase = await Case.create({
+        patient_id: patient.id,
+        region,
+        diagnostico,
+        fase: normalizedPhase,
+        etiologia: etiologia || null,
+        tejido: tejido || null,
+        tratamiento: tratamiento || null,
+        uploaded_by: userId,
+        dni: dni
+      });
+      caseId = newCase.id;
+    }
+
+    // Subir imágenes y asociarlas al caso (nuevo o existente)
+    try {
+      await uploadAndAssociateImages(files, caseId, normalizedPhase, userId);
+      console.log('Imágenes subidas y asociadas al caso correctamente');
+    } catch (error) {
+      console.error('Error al subir imágenes:', error);
+      // Si hubo error subiendo imágenes pero el caso es nuevo, podrías considerar eliminarlo
+      if (isNewCase) {
+        await Case.destroy({ where: { id: caseId } });
+      }
+      throw error;
+    }
+
+    // Obtener el caso completo con sus relaciones para la respuesta
+    const caseWithDetails = await Case.findByPk(caseId, {
+      include: [{
+        model: Image,
+        as: 'images'
+      }, {
+        model: Patient,
+        as: 'patient',
+        attributes: ['id', 'dni', 'nombre', 'apellido']
+      }]
+    });
 
     res.status(201).json({
       success: true,
-      message: `Caso creado con ${req.files.length} imagen(es)`,
-      caseId: newCase.id,
-      patientId: patient.id
+      message: isNewCase 
+        ? `Caso creado con ${files.length} imagen(es)` 
+        : `Imágenes agregadas a caso existente (${files.length} imagen(es))`,
+      caseId: caseId,
+      patientId: patient.id,
+      isNewCase: isNewCase,
+      existingCaseId: existingCase ? existingCase.id : null,
+      case: caseWithDetails.toJSON()
     });
 
   } catch (error) {
     console.error('Error en takePhotoAndCreateCase:', error);
+    
+    // Manejo específico de errores de Sequelize
+    if (error.name === 'SequelizeValidationError') {
+      const errors = error.errors.map(e => e.message);
+      return res.status(400).json({ 
+        error: 'Error de validación', 
+        details: errors 
+      });
+    }
+    
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ 
+        error: 'Ya existe un paciente con este DNI' 
+      });
+    }
+
     res.status(500).json({
       message: 'Error al procesar las imágenes y crear el caso',
       error: error.message
