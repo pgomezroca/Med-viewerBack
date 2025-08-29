@@ -251,11 +251,45 @@ const changeCaseStatus = async (req, res) => {
   }
 };
 
+//Cambiar fecha de cirugía de un caso
+const changeSurgeryDate = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { surgeon_date } = req.body;
+    const userId = req.user.id;
+
+    if (!caseId || !surgeon_date) {
+      return res.status(400).json({ error: 'caseId y surgeon_date son requeridos' });
+    }
+
+    const [updated] = await Case.update(
+      { surgeon_date: surgeon_date },
+      {
+        where: { id: caseId, uploaded_by: userId }
+      }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Caso no encontrado' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Fecha de cirugía actualizada correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
 module.exports = {
   updateCase,
   deleteCaseImage,
   deleteCaseWithImages,
   createEmptyCaseForExistingPatient,
   getCaseInfo,
-  changeCaseStatus
+  changeCaseStatus,
+  changeSurgeryDate
 };
