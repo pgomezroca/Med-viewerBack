@@ -1,25 +1,40 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 
-const imageSchema = new mongoose.Schema({
-  url: { type: String, required: false },
-  region: { type: String, required: true },
-  etiologia: { type: String, required: false },
-  tejido: { type: String, required: false },
-  diagnostico: { type: String, required: true },
-  tratamiento: { type: String, required: false },
-  phase: {
-    type: String,
-    enum: ['pre', 'intra', 'post'],
-    required: false
-  },
-  uploadedAt: { type: Date, default: Date.now },
-  uploadedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false
-  },
+module.exports = (sequelize) => {
+  const Image = sequelize.define('Image', {
+    case_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "PatientCases",
+        key: "id",
+      },
+      field: "case_id",
+      onDelete: "CASCADE",
+    },
+    url: {
+      type: DataTypes.STRING(512),
+      allowNull: false,
+    },
+    fase: {
+      type: DataTypes.ENUM('pre', 'intra', 'post'),
+      allowNull: true,
+      defaultValue: 'pre'
+    },
+  }, {
+    tableName: 'images',
+    timestamps: true,
+    underscored: true,
+  });
 
-  optionalDNI: { type: String }
-});
+  Image.associate = (models) => {
+    Image.belongsTo(models.Case, {
+      foreignKey: 'case_id',
+      as: 'case',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    });
+  };
 
-module.exports = mongoose.model('Image', imageSchema);
+  return Image;
+};

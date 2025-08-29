@@ -1,26 +1,33 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
+const cors = require('cors');
+const { sequelize } = require('./models');
 const imageRoutes = require('./routes/imageRoutes');
 const authRoutes = require('./routes/auth');
-const favoriteRoutes = require('./routes/favorites');
-const app = express();
-const cors = require('cors');
 
+const app = express();
+
+// Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
+// Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/images', imageRoutes);
-app.use('/api/favorites', favoriteRoutes);
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('Conectado a MongoDB');
-  app.listen(process.env.PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${process.env.PORT}`);
+// Conexión a base de datos y levantar servidor
+sequelize.authenticate()
+  .then(() => {
+    console.log('Conectado a la base de datos correctamente');
+    return sequelize.sync(); // o sync({ alter: true }) en desarrollo
+  })
+  .then(() => {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ Error al conectar con la base de datos:', err);
   });
-}).catch(err => console.error('Error MongoDB:', err));
