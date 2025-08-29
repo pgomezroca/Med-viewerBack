@@ -325,18 +325,11 @@ const takePhotoAndCreateCase = async (req, res) => {
     });
     
     if (!patient) {
-      // Validar que se proporcionen nombre y apellido para nuevo paciente
-      if (!req.body.nombre || !req.body.apellido) {
-        return res.status(400).json({ 
-          error: 'Para crear un nuevo paciente, se requieren nombre y apellido' 
-        });
-      }
-
       patient = await Patient.create({ 
         dni,
         user_id: userId,
-        nombre: req.body.nombre,
-        apellido: req.body.apellido
+        nombre: req.body.nombre || null,
+        apellido: req.body.apellido || null
       });
     }
 
