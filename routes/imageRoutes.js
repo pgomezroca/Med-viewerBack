@@ -36,4 +36,7 @@ router.get('/cases/:caseId/images', auth, casesController.getCaseInfo);
 //Cambiar el estado de un caso
 router.put('/cases/:caseId/change-status', auth, casesController.changeCaseStatus);
 
+//Cambiar la fecha de cirugía de un caso
+router.put('/cases/:caseId/change-surgeon-date', auth, casesController.changeSurgeryDate);
+
 module.exports = router;
