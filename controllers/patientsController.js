@@ -297,7 +297,7 @@ const takePhotoAndCreateCase = async (req, res) => {
       });
     }
 
-    if (!dni) return res.status(400).json({ error: "DNI requerido" });
+    
     if (!region) return res.status(400).json({ error: "Región requerida" });
     if (!diagnostico) return res.status(400).json({ error: "Diagnóstico requerido" });
 
