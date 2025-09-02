@@ -346,7 +346,7 @@ const takePhotoAndCreateCase = async (req, res) => {
         tejido: tejido || existingCase.tejido,
         tratamiento: tratamiento || existingCase.tratamiento,
       }, {
-        where: { id: caseId }
+        where: { id: caseId, uploaded_by: userId }
       });
     } else {
       // Crear nuevo caso
