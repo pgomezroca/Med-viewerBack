@@ -286,7 +286,7 @@ const uploadAndAssociateImages = async (files, caseId, phase, userId) => {
   return imageUrls;
 };
 
-// Función principal para tomar foto/importar y crear caso (TakePhoto.jsx, ImportPhoto.jsx)
+//importar y crear caso (TakePhoto.jsx, ImportPhoto.jsx)
 const takePhotoAndCreateCase = async (req, res) => {
   try {
     const { dni, region, diagnostico, fase, etiologia, tejido, tratamiento } = req.body;
