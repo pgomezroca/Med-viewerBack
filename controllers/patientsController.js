@@ -289,20 +289,23 @@ const uploadAndAssociateImages = async (files, caseId, phase, userId) => {
 //importar y crear caso (TakePhoto.jsx, ImportPhoto.jsx)
 const takePhotoAndCreateCase = async (req, res) => {
   try {
-    const { dni, region, diagnostico, fase, etiologia, tejido, tratamiento } = req.body;
+    let { dni, region, diagnostico, fase, etiologia, tejido, tratamiento } = req.body;
 
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        message: 'No se han subido imágenes'
-      });
+      return res.status(400).json({ message: 'No se han subido imágenes' });
     }
 
-    
     if (!region) return res.status(400).json({ error: "Región requerida" });
     if (!diagnostico) return res.status(400).json({ error: "Diagnóstico requerido" });
 
     const files = req.files;
     const userId = req.user.id;
+
+    // Si no hay dni, generar uno temporal con Date.now()
+    if (!dni) {
+      dni = `sin_dni_${Date.now()}`;
+      console.warn(`Creando paciente con DNI temporal: ${dni}`);
+    }
 
     // Normalizar fase
     const normalizedPhase = fase?.toLowerCase() || 'pre';
@@ -310,22 +313,19 @@ const takePhotoAndCreateCase = async (req, res) => {
     // Validar si existe un caso similar en los últimos 6 meses
     const currentDate = new Date();
     const existingCase = await validateDuplicateCase(
-      dni, 
-      region, 
-      diagnostico, 
-      currentDate, 
+      dni,
+      region,
+      diagnostico,
+      currentDate,
       userId
     );
 
-    let patient = await Patient.findOne({ 
-      where: { 
-        dni,
-        user_id: userId
-      } 
+    let patient = await Patient.findOne({
+      where: { dni, user_id: userId }
     });
-    
+
     if (!patient) {
-      patient = await Patient.create({ 
+      patient = await Patient.create({
         dni,
         user_id: userId,
         nombre: req.body.nombre || null,
@@ -339,8 +339,7 @@ const takePhotoAndCreateCase = async (req, res) => {
     if (existingCase) {
       caseId = existingCase.id;
       isNewCase = false;
-      
-      // Actualizar información adicional del caso existente si es necesario
+
       await Case.update({
         etiologia: etiologia || existingCase.etiologia,
         tejido: tejido || existingCase.tejido,
@@ -349,7 +348,6 @@ const takePhotoAndCreateCase = async (req, res) => {
         where: { id: caseId, uploaded_by: userId }
       });
     } else {
-      // Crear nuevo caso
       const newCase = await Case.create({
         patient_id: patient.id,
         region,
@@ -364,20 +362,17 @@ const takePhotoAndCreateCase = async (req, res) => {
       caseId = newCase.id;
     }
 
-    // Subir imágenes y asociarlas al caso (nuevo o existente)
     try {
       await uploadAndAssociateImages(files, caseId, normalizedPhase, userId);
       console.log('Imágenes subidas y asociadas al caso correctamente');
     } catch (error) {
       console.error('Error al subir imágenes:', error);
-      // Si hubo error subiendo imágenes pero el caso es nuevo, podrías considerar eliminarlo
       if (isNewCase) {
         await Case.destroy({ where: { id: caseId } });
       }
       throw error;
     }
 
-    // Obtener el caso completo con sus relaciones para la respuesta
     const caseWithDetails = await Case.findByPk(caseId, {
       include: [{
         model: Image,
@@ -391,8 +386,8 @@ const takePhotoAndCreateCase = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: isNewCase 
-        ? `Caso creado con ${files.length} imagen(es)` 
+      message: isNewCase
+        ? `Caso creado con ${files.length} imagen(es)`
         : `Imágenes agregadas a caso existente (${files.length} imagen(es))`,
       caseId: caseId,
       patientId: patient.id,
@@ -403,19 +398,18 @@ const takePhotoAndCreateCase = async (req, res) => {
 
   } catch (error) {
     console.error('Error en takePhotoAndCreateCase:', error);
-    
-    // Manejo específico de errores de Sequelize
+
     if (error.name === 'SequelizeValidationError') {
       const errors = error.errors.map(e => e.message);
-      return res.status(400).json({ 
-        error: 'Error de validación', 
-        details: errors 
+      return res.status(400).json({
+        error: 'Error de validación',
+        details: errors
       });
     }
-    
+
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ 
-        error: 'Ya existe un paciente con este DNI' 
+      return res.status(400).json({
+        error: 'Ya existe un paciente con este DNI'
       });
     }
 
