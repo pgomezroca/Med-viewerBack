@@ -5,7 +5,6 @@ module.exports = (sequelize) => {
     dni: {
       type: DataTypes.STRING(32),
       allowNull: false,
-      unique: true,
     },
     nombre: {
       type: DataTypes.STRING(100),

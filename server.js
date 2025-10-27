@@ -4,6 +4,7 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const imageRoutes = require('./routes/imageRoutes');
 const authRoutes = require('./routes/auth');
+const formularioJerarquicoRoutes = require('./routes/formularioJerarquicoRoutes');
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(cors());
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api', formularioJerarquicoRoutes);
 
 // Conexión a base de datos y levantar servidor
 sequelize.authenticate()
